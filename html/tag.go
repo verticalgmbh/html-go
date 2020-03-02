@@ -35,3 +35,37 @@ func (tag *Tag) GetAttribute(name string) *Attribute {
 	}
 	return nil
 }
+
+// GetTagChild get the first child of type tag which matches the specified name
+func (tag *Tag) GetTagChild(name string) *Tag {
+	for _, child := range tag.Children {
+		childtag, ok := child.(*Tag)
+		if !ok {
+			continue
+		}
+
+		if childtag.Name == name {
+			return childtag
+		}
+	}
+
+	return nil
+}
+
+// GetTagChildren get all children of type tag which match the specified name
+func (tag *Tag) GetTagChildren(name string) []*Tag {
+	var result []*Tag
+
+	for _, child := range tag.Children {
+		childtag, ok := child.(*Tag)
+		if !ok {
+			continue
+		}
+
+		if childtag.Name == name {
+			result = append(result, childtag)
+		}
+	}
+
+	return result
+}

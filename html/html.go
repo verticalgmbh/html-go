@@ -47,7 +47,7 @@ func decodeText(data string) *Text {
 			case ';':
 				name := literal.String()
 				tokens = append(tokens, &TextToken{
-					IsSpecial: IsSpecial(name),
+					IsSpecial: true,
 					Data:      name})
 
 				literal.Reset()

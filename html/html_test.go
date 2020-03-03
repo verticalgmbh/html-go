@@ -31,8 +31,8 @@ func TestSpecialCharacters(t *testing.T) {
 	iftags := document.HTML.GetTagChild("body").GetTagChildren("if")
 	require.Equal(t, 2, len(iftags))
 
-	require.Equal(t, "##TRIGGER.COUNT## < 5", iftags[0].GetAttribute("condition").Value)
-	require.Equal(t, "##TRIGGER.COUNT## >= 5", iftags[1].GetAttribute("condition").Value)
+	require.Equal(t, "##TRIGGER.COUNT## < 5", iftags[0].GetAttribute("condition").Value.String())
+	require.Equal(t, "##TRIGGER.COUNT## >= 5", iftags[1].GetAttribute("condition").Value.String())
 
 	require.NotNil(t, document.HTML)
 	require.Equal(t, "html", document.HTML.Name)

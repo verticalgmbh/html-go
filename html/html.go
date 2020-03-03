@@ -35,8 +35,9 @@ func parseDocumentParent(reader *bufio.Reader, document *Document) error {
 	return nil
 }
 
-func decodeText(data string) string {
-	var result strings.Builder
+func decodeText(data string) *Text {
+	var tokens []*TextToken
+
 	var literal strings.Builder
 
 	literalscan := false
@@ -45,23 +46,10 @@ func decodeText(data string) string {
 			switch character {
 			case ';':
 				name := literal.String()
-				switch name {
-				case "quot":
-					result.WriteRune('"')
-				case "apos":
-					result.WriteRune('\'')
-				case "amp":
-					result.WriteRune('&')
-				case "lt":
-					result.WriteRune('<')
-				case "gt":
-					result.WriteRune('>')
-				default:
-					// unknown / unsupported tokens are written unmodified
-					result.WriteRune('&')
-					result.WriteString(name)
-					result.WriteRune(';')
-				}
+				tokens = append(tokens, &TextToken{
+					IsSpecial: IsSpecial(name),
+					Data:      name})
+
 				literal.Reset()
 				literalscan = false
 			default:
@@ -70,19 +58,27 @@ func decodeText(data string) string {
 		} else {
 			switch character {
 			case '&':
+				if literal.Len() > 0 {
+					tokens = append(tokens, &TextToken{
+						IsSpecial: false,
+						Data:      literal.String()})
+					literal.Reset()
+				}
 				literalscan = true
 			default:
-				result.WriteRune(character)
+				literal.WriteRune(character)
 			}
 		}
 	}
 
 	if literal.Len() > 0 {
-		result.WriteRune('&')
-		result.WriteString(literal.String())
+		tokens = append(tokens, &TextToken{
+			IsSpecial: false,
+			Data:      literal.String()})
 	}
 
-	return result.String()
+	return &Text{
+		Tokens: tokens}
 }
 
 func parseTagParent(reader *bufio.Reader, parent *Tag) error {
@@ -94,8 +90,7 @@ func parseTagParent(reader *bufio.Reader, parent *Tag) error {
 			return err
 		}
 		if len(data) > 0 {
-			parent.Children = append(parent.Children, &Text{
-				Data: decodeText(string(data[:len(data)-1]))})
+			parent.Children = append(parent.Children, decodeText(string(data[:len(data)-1])))
 		}
 
 		data, err = reader.ReadBytes(byte('>'))
@@ -110,9 +105,8 @@ func parseTagParent(reader *bufio.Reader, parent *Tag) error {
 			if string(data[1:len(data)-1]) == parent.Name {
 				// parent tag was closed
 				return nil
-			} else {
-				return errors.New("Invalid tag close")
 			}
+			return errors.New("Invalid tag close")
 		}
 
 		// comment
@@ -219,39 +213,24 @@ func Parse(reader io.Reader) (*Document, error) {
 	return document, nil
 }
 
-func encodeText(data string) string {
-	var result strings.Builder
-
-	for _, character := range data {
-		switch character {
-		case '"':
-			result.WriteString("&quot;")
-		case '\'':
-			result.WriteString("&apos;")
-		case '&':
-			result.WriteString("&amp;")
-		case '<':
-			result.WriteString("&lt;")
-		case '>':
-			result.WriteString("&gt;")
-		default:
-			result.WriteRune(character)
-		}
+func writeText(text *Text, writer io.Writer) {
+	for _, token := range text.Tokens {
+		io.WriteString(writer, token.Token())
 	}
-
-	return result.String()
 }
 
 func writeNode(node Node, writer io.Writer) {
 	switch node.(type) {
 	case *Text:
 		text := node.(*Text)
-		io.WriteString(writer, encodeText(text.Data))
+		writeText(text, writer)
 	case *Tag:
 		tag := node.(*Tag)
 		io.WriteString(writer, fmt.Sprintf("<%s", tag.Name))
 		for _, attr := range tag.Attributes {
-			io.WriteString(writer, fmt.Sprintf(" %s=\"%s\"", attr.Name, encodeText(attr.Value)))
+			io.WriteString(writer, fmt.Sprintf(" %s=\"", attr.Name))
+			writeText(attr.Value, writer)
+			io.WriteString(writer, "\"")
 		}
 
 		switch tag.Name {

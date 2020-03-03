@@ -3,7 +3,7 @@ package html
 // Attribute attribute in a html tag
 type Attribute struct {
 	Name  string
-	Value string
+	Value *Text
 }
 
 // Clone clones this attribute
